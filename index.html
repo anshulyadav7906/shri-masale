@@ -1565,5 +1565,147 @@ function closePolicy(){ document.getElementById('policyModal').classList.remove(
 })();
 </script>
 
+
+<style id="shri-product-admin-css">
+#shri-product-admin{display:none;margin:24px 0;padding:20px;border:1px solid #ddd;border-radius:16px;background:#fff}
+#shri-product-admin .spa-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+#shri-product-admin .spa-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-top:16px}
+.spa-card{border:1px solid #ddd;border-radius:14px;padding:14px;background:#fff}
+.spa-card img{width:100%;height:150px;object-fit:cover;border-radius:10px;background:#f5f5f5}
+.spa-card .spa-prices{display:flex;gap:9px;align-items:center;margin:8px 0}
+.spa-old{text-decoration:line-through;opacity:.6}.spa-new{font-weight:800}.spa-off{font-size:12px;font-weight:800}
+.spa-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+#shri-product-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center;padding:16px}
+#shri-product-modal .spa-modal{background:#fff;width:min(620px,100%);max-height:92vh;overflow:auto;border-radius:18px;padding:20px}
+.spa-field{margin:10px 0}.spa-field label{display:block;font-weight:700;margin-bottom:5px}
+.spa-field input,.spa-field textarea,.spa-field select{width:100%;box-sizing:border-box;padding:10px;border:1px solid #ccc;border-radius:9px}
+.spa-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}.spa-modal-buttons{display:flex;justify-content:flex-end;gap:8px;margin-top:15px}
+@media(max-width:600px){.spa-two{grid-template-columns:1fr}}
+</style>
+
+<section id="shri-product-admin">
+  <div class="spa-head">
+    <div>
+      <h2 style="margin:0">Product Management</h2>
+      <div style="font-size:13px;opacity:.7;margin-top:4px">Manage products, MRP, offers, stock and visibility.</div>
+    </div>
+    <button type="button" onclick="shriOpenProductModal()">＋ Add Product</button>
+  </div>
+  <div id="shri-product-grid" class="spa-grid"></div>
+</section>
+
+<div id="shri-product-modal">
+  <div class="spa-modal">
+    <h3 id="shri-product-modal-title">Add Product</h3>
+    <input type="hidden" id="shri-p-id">
+    <div class="spa-field"><label>Product Name</label><input id="shri-p-name"></div>
+    <div class="spa-two">
+      <div class="spa-field"><label>Weight</label><input id="shri-p-weight" placeholder="100g"></div>
+      <div class="spa-field"><label>Stock</label><select id="shri-p-stock"><option value="available">Available</option><option value="out_of_stock">Out of Stock</option></select></div>
+    </div>
+    <div class="spa-two">
+      <div class="spa-field"><label>Original / MRP Price (₹)</label><input id="shri-p-mrp" type="number" min="0" step="0.01"></div>
+      <div class="spa-field"><label>Offer Price (₹)</label><input id="shri-p-offer" type="number" min="0" step="0.01"></div>
+    </div>
+    <div class="spa-field"><label>Image URL</label><input id="shri-p-image" placeholder="https://..."></div>
+    <div class="spa-field"><label>Description</label><textarea id="shri-p-description" rows="4"></textarea></div>
+    <div class="spa-modal-buttons">
+      <button type="button" onclick="shriCloseProductModal()">Cancel</button>
+      <button type="button" onclick="shriSaveProduct()">Save Product</button>
+    </div>
+  </div>
+</div>
+
+<script id="shri-product-admin-js">
+(function(){
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const discount = (mrp, offer) => {
+    mrp=Number(mrp)||0; offer=Number(offer)||0;
+    return mrp>0 && offer<mrp ? Math.round((1-offer/mrp)*100) : 0;
+  };
+  let productsCache=[];
+
+  window.shriLoadProducts = async function(){
+    const sec=document.getElementById('shri-product-admin'), grid=document.getElementById('shri-product-grid');
+    if(!sec || !window.sb) return;
+    sec.style.display='block';
+    grid.innerHTML='<div>Loading products…</div>';
+    const {data,error}=await sb.from('products').select('*').order('created_at',{ascending:false});
+    if(error){
+      console.error(error);
+      grid.innerHTML='<div style="padding:12px">Products table is not ready. Run the supplied Supabase SQL first.</div>';
+      return;
+    }
+    productsCache=data||[];
+    grid.innerHTML=productsCache.map(p=>{
+      const d=discount(p.original_price,p.offer_price);
+      return `<div class="spa-card">
+        ${p.image_url?`<img src="${esc(p.image_url)}" alt="${esc(p.name)}">`:''}
+        <strong>${esc(p.name)}</strong>
+        <div style="font-size:13px;opacity:.7">${esc(p.weight||'')}</div>
+        <div class="spa-prices"><span class="spa-old">₹${Number(p.original_price||0).toFixed(0)}</span><span class="spa-new">₹${Number(p.offer_price||0).toFixed(0)}</span>${d?`<span class="spa-off">${d}% OFF</span>`:''}</div>
+        <div style="font-size:12px">${p.is_active?'Visible':'Hidden'} · ${p.stock_status==='available'?'In stock':'Out of stock'}</div>
+        <div class="spa-actions">
+          <button type="button" onclick="shriEditProduct('${p.id}')">Edit</button>
+          <button type="button" onclick="shriToggleProduct('${p.id}',${!!p.is_active})">${p.is_active?'Hide':'Show'}</button>
+          <button type="button" onclick="shriDeleteProduct('${p.id}')">Delete</button>
+        </div>
+      </div>`;
+    }).join('') || '<div>No products yet. Click Add Product.</div>';
+  };
+
+  window.shriOpenProductModal=function(p){
+    document.getElementById('shri-product-modal').style.display='flex';
+    document.getElementById('shri-product-modal-title').textContent=p?'Edit Product':'Add Product';
+    document.getElementById('shri-p-id').value=p?.id||'';
+    document.getElementById('shri-p-name').value=p?.name||'';
+    document.getElementById('shri-p-weight').value=p?.weight||'';
+    document.getElementById('shri-p-stock').value=p?.stock_status||'available';
+    document.getElementById('shri-p-mrp').value=p?.original_price??'';
+    document.getElementById('shri-p-offer').value=p?.offer_price??'';
+    document.getElementById('shri-p-image').value=p?.image_url||'';
+    document.getElementById('shri-p-description').value=p?.description||'';
+  };
+  window.shriCloseProductModal=function(){document.getElementById('shri-product-modal').style.display='none'};
+  window.shriEditProduct=function(id){const p=productsCache.find(x=>String(x.id)===String(id));if(p)shriOpenProductModal(p)};
+
+  window.shriSaveProduct=async function(){
+    const id=document.getElementById('shri-p-id').value.trim();
+    const payload={
+      name:document.getElementById('shri-p-name').value.trim(),
+      weight:document.getElementById('shri-p-weight').value.trim(),
+      original_price:Number(document.getElementById('shri-p-mrp').value||0),
+      offer_price:Number(document.getElementById('shri-p-offer').value||0),
+      image_url:document.getElementById('shri-p-image').value.trim(),
+      description:document.getElementById('shri-p-description').value.trim(),
+      stock_status:document.getElementById('shri-p-stock').value
+    };
+    if(!payload.name)return alert('Product name is required.');
+    if(payload.offer_price>payload.original_price)return alert('Offer price cannot be higher than MRP.');
+    const r=id?await sb.from('products').update(payload).eq('id',id):await sb.from('products').insert(payload);
+    if(r.error)return alert(r.error.message);
+    shriCloseProductModal(); await shriLoadProducts(); alert('Product saved.');
+  };
+
+  window.shriToggleProduct=async function(id,current){
+    const r=await sb.from('products').update({is_active:!current}).eq('id',id);
+    if(r.error)return alert(r.error.message);
+    shriLoadProducts();
+  };
+  window.shriDeleteProduct=async function(id){
+    if(!confirm('Delete this product permanently?'))return;
+    const r=await sb.from('products').delete().eq('id',id);
+    if(r.error)return alert(r.error.message);
+    shriLoadProducts();
+  };
+
+  // Product admin is only shown after the site's existing admin authentication flag is true.
+  const oldShow = window.showAdmin;
+  if(typeof oldShow==='function'){
+    window.showAdmin=function(){ const r=oldShow.apply(this,arguments); shriLoadProducts(); return r; };
+  }
+})();
+</script>
+
 </body>
 </html>
