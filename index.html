@@ -502,7 +502,7 @@
             <div class="pname" id="hero-product-name">Khara Masala</div>
             <div class="pmeta" id="hero-product-weight">100g</div>
           </div>
-          <div class="pprice" id="hero-price">₹170</div>
+          <div class="pprice" id="hero-price"><span style="color:#777;text-decoration:line-through;font-size:.9em;margin-right:8px;">₹499</span>₹180</div>
         </div>
       </div>
       <div class="hero-visual">
@@ -539,9 +539,9 @@
           <h3 class="product-title">Khara Masala</h3>
           <div class="product-weight" id="product-weight">100g</div>
           <div class="product-price" id="product-price">
-            <span class="old-price" id="product-old-price">₹170</span>
-            <span class="offer-price" id="product-offer-price">₹170</span>
-            <span class="product-discount" id="product-discount">0% OFF</span>
+            <span class="old-price" id="product-old-price">₹499</span>
+            <span class="offer-price" id="product-offer-price">₹180</span>
+            <span class="product-discount" id="product-discount">64% OFF</span>
           </div>
           <p class="product-desc">Aromatic Indian spice blend crafted to bring depth, warmth and authentic flavour to your favourite dishes.</p>
           <button class="btn btn-primary" onclick="showPage('order')">Order Khara Masala</button>
@@ -873,7 +873,7 @@
 
 <!-- STICKY MOBILE CTA -->
 <div id="sticky-cta">
-  <button class="btn btn-primary" onclick="showPage('order')">Order Now — ₹170</button>
+  <button class="btn btn-primary" id="sticky-order-btn" onclick="showPage('order')">Order Now — ₹180</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -881,7 +881,7 @@
 <script>
 /* ===================== CONFIG DEFAULTS ===================== */
 
-const PRODUCT = { name: "Khara Masala", weight: "100g", price: 170 };
+const PRODUCT = { name: "Khara Masala", weight: "100g", price: 180, original_price: 499, offer_price: 180 };
 let PRODUCT_IMAGE = "";
 async function loadLiveProduct(){
   try{
@@ -911,7 +911,11 @@ async function loadLiveProduct(){
     set('hero-product-name', PRODUCT.name);
     set('hero-product-weight', PRODUCT.weight);
     set('hero-price', money(PRODUCT.price));
+    const heroPriceEl=document.getElementById('hero-price');
+    if(heroPriceEl) heroPriceEl.innerHTML = oldPrice>PRODUCT.price ? '<span style="color:#777;text-decoration:line-through;font-size:.9em;margin-right:8px;">'+money(oldPrice)+'</span>'+money(PRODUCT.price) : money(PRODUCT.price);
     set('product-title', PRODUCT.name);
+    const productTitleEl=document.querySelector('.product-title');
+    if(productTitleEl) productTitleEl.textContent=PRODUCT.name;
     set('product-weight', PRODUCT.weight);
     set('product-old-price', money(oldPrice));
     set('product-offer-price', money(PRODUCT.price));
